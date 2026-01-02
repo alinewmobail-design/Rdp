@@ -11,18 +11,11 @@ jobs:
     steps:
     - name: Configure Core RDP Settings
       run: |
-        # Enable Remote Desktop and disable Network Level Authentication (if needed)
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
-
-        # Remove any existing rule with the same name to avoid duplication
         netsh advfirewall firewall delete rule name="RDP-Tailscale"
-
-        # Allow RDP on any incoming connection on port 3389
         netsh advfirewall firewall add rule name="RDP-Tailscale" dir=in action=allow protocol=TCP localport=3389
-
-        # (Optional) Restart the Remote Desktop Service to ensure changes take effect
         Restart-Service -Name TermService -Force
 
     - name: Create RDP User with Secure Password
@@ -40,7 +33,7 @@ jobs:
 
     - name: Install Tailscale
       run: |
-        # FIXED LINK: Changed version 1.82.0 to 'stable' to remove the 404 error
+        # Fixed the URL below to prevent the 'Not Found' error from your screenshot
         Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.exe" -OutFile TailscaleSetup.exe
         Start-Process -FilePath .\TailscaleSetup.exe -ArgumentList "/quiet", "/norestart" -Wait
         Remove-Item TailscaleSetup.exe
@@ -54,9 +47,7 @@ jobs:
     - name: Verify RDP Accessibility
       run: |
         $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
-        echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
-        
-        # Test connectivity using Test-NetConnection against the Tailscale IP on port 3389
+        Write-Host "Tailscale IP: $ip"
         $testResult = Test-NetConnection -ComputerName $ip -Port 3389
         if (-not $testResult.TcpTestSucceeded) {
             Write-Error "TCP connection to RDP port 3389 failed"
@@ -69,9 +60,7 @@ jobs:
         Write-Host "--- RDP ACCESS ---"
         $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
         Write-Host "Address: $ip"
-        Write-Host "Username: RDP-User"
         Write-Host "------------------"
-        # Keep runner active indefinitely (or until manually cancelled)
         while ($true) {
             Write-Host "$((Get-Date).ToString()) - RDP Active... Use Ctrl+C in workflow to terminate"
             Start-Sleep -Seconds 300
