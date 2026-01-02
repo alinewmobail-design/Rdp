@@ -11,16 +11,11 @@ jobs:
     steps:
     - name: Configure Core RDP Settings
       run: |
-        # Enable Remote Desktop and disable NLA
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
-
-        # Open Firewall for RDP
         netsh advfirewall firewall delete rule name="RDP-Tailscale"
         netsh advfirewall firewall add rule name="RDP-Tailscale" dir=in action=allow protocol=TCP localport=3389
-
-        # Restart service
         Restart-Service -Name TermService -Force
 
     - name: Create RDP User with Secure Password
@@ -36,15 +31,13 @@ jobs:
         Write-Host "Password: $Password"
         Write-Host "-----------------------"
 
-    - name: Install Tailscale via Chocolatey
+    - name: Install Tailscale
       run: |
-        # Using choco is more reliable than direct downloads to avoid 404 errors
+        # This replaces the broken 'Invoke-WebRequest' link from your video
         choco install tailscale -y
 
     - name: Connect Tailscale
       run: |
-        # Wait a moment for the service to initialize after choco install
-        Start-Sleep -Seconds 5
         & "C:\Program Files\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=github-rdp-runner
       env:
         TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -58,7 +51,6 @@ jobs:
             Write-Error "TCP connection to RDP port 3389 failed"
             exit 1
         }
-        Write-Host "TCP connectivity successful!"
 
     - name: Maintain Connection
       run: |
